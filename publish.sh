@@ -16,7 +16,8 @@ else
   git commit -m "$MSG"
 fi
 
-echo "==> Pushing to GitHub (origin main)..."
+echo "==> Pushing to GitHub (main & gh-pages)..."
 git push origin main
+git push origin main:gh-pages
 
-echo "==> Published! GitHub Pages will update within ~30-60 seconds."
+echo "==> Published! Live at: https://barryboy1002.github.io/Barry-s-Journal/"
