@@ -1,330 +1,136 @@
 (function () {
-  "use strict";
-
+  const posts = Array.isArray(window.JOURNAL_POSTS) ? window.JOURNAL_POSTS : [];
   const postsListEl = document.getElementById("posts-list");
-  const tagFilterBarEl = document.getElementById("tag-filter-bar");
-  const searchInputEl = document.getElementById("post-search-input");
-  const homeSectionsViewEl = document.getElementById("home-sections-view");
-  const heroSectionEl = document.getElementById("hero-section");
-  const postReaderViewEl = document.getElementById("post-reader-view");
-  const postArticleContainerEl = document.getElementById("post-article-container");
-  const readerPostPathEl = document.getElementById("reader-post-path");
-  const backToJournalBtn = document.getElementById("back-to-journal-btn");
-  const brandLink = document.getElementById("brand-link");
-  const navLinks = document.querySelectorAll(".nav-link");
-
-  let allPosts = Array.isArray(window.JOURNAL_POSTS) ? window.JOURNAL_POSTS : [];
-  let activeTag = "all";
-  let searchQuery = "";
+  const mainViewEl = document.getElementById("main-view");
+  const postViewEl = document.getElementById("post-view");
+  const postContentEl = document.getElementById("post-content");
 
   function escapeHtml(str) {
     return String(str)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+      .replace(/"/g, "&quot;");
   }
 
-  function parseInlineMarkdown(text) {
-    let out = escapeHtml(text);
-    // Inline code `code`
-    out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
-    // Bold **text**
-    out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-    // Italic *text*
-    out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-    // Links [label](url)
-    out = out.replace(
-      /\[([^\]]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+|#[^\s)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
-    );
-    return out;
+  function parseInline(text) {
+    return escapeHtml(text)
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+      .replace(
+        /\[([^\]]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+|#[^\s)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+      );
   }
 
   function renderMarkdown(md) {
     const lines = String(md || "").replace(/\r\n/g, "\n").split("\n");
     const html = [];
-    let inCodeBlock = false;
-    let codeLang = "";
-    let codeBuffer = [];
+    let inCode = false;
+    let codeBuf = [];
     let inList = false;
-    let listType = "ul";
 
     function closeList() {
       if (inList) {
-        html.push(`</${listType}>`);
+        html.push("</ul>");
         inList = false;
       }
     }
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-
+    for (const line of lines) {
       if (line.trim().startsWith("```")) {
         closeList();
-        if (!inCodeBlock) {
-          inCodeBlock = true;
-          codeLang = line.trim().slice(3).trim();
-          codeBuffer = [];
+        if (!inCode) {
+          inCode = true;
+          codeBuf = [];
         } else {
-          const langAttr = codeLang ? ` data-lang="${escapeHtml(codeLang)}"` : "";
-          html.push(
-            `<pre${langAttr}><code>${escapeHtml(codeBuffer.join("\n"))}</code></pre>`
-          );
-          inCodeBlock = false;
-          codeLang = "";
-          codeBuffer = [];
+          html.push(`<pre><code>${escapeHtml(codeBuf.join("\n"))}</code></pre>`);
+          inCode = false;
         }
         continue;
       }
-
-      if (inCodeBlock) {
-        codeBuffer.push(line);
+      if (inCode) {
+        codeBuf.push(line);
         continue;
       }
 
-      const trimmed = line.trim();
-      if (!trimmed) {
+      const t = line.trim();
+      if (!t) {
         closeList();
         continue;
       }
-
-      if (/^---+$/.test(trimmed)) {
+      if (/^---+$/.test(t)) {
         closeList();
         html.push("<hr />");
         continue;
       }
-
-      const headingMatch = trimmed.match(/^(#{1,4})\s+(.*)$/);
-      if (headingMatch) {
+      const h = t.match(/^(#{1,3})\s+(.*)$/);
+      if (h) {
         closeList();
-        const level = headingMatch[1].length;
-        html.push(`<h${level}>${parseInlineMarkdown(headingMatch[2])}</h${level}>`);
+        const lvl = h[1].length;
+        html.push(`<h${lvl}>${parseInline(h[2])}</h${lvl}>`);
         continue;
       }
-
-      if (trimmed.startsWith("> ")) {
+      if (t.startsWith("> ")) {
         closeList();
-        html.push(`<blockquote>${parseInlineMarkdown(trimmed.slice(2))}</blockquote>`);
+        html.push(`<blockquote>${parseInline(t.slice(2))}</blockquote>`);
         continue;
       }
-
-      const ulMatch = trimmed.match(/^[-*]\s+(.*)$/);
-      if (ulMatch) {
-        if (!inList || listType !== "ul") {
-          closeList();
+      if (t.startsWith("- ") || t.startsWith("* ")) {
+        if (!inList) {
           html.push("<ul>");
           inList = true;
-          listType = "ul";
         }
-        html.push(`<li>${parseInlineMarkdown(ulMatch[1])}</li>`);
+        html.push(`<li>${parseInline(t.slice(2))}</li>`);
         continue;
       }
-
-      const olMatch = trimmed.match(/^\d+\.\s+(.*)$/);
-      if (olMatch) {
-        if (!inList || listType !== "ol") {
-          closeList();
-          html.push("<ol>");
-          inList = true;
-          listType = "ol";
-        }
-        html.push(`<li>${parseInlineMarkdown(olMatch[1])}</li>`);
-        continue;
-      }
-
       closeList();
-      html.push(`<p>${parseInlineMarkdown(trimmed)}</p>`);
+      html.push(`<p>${parseInline(t)}</p>`);
     }
-
     closeList();
-    if (inCodeBlock) {
-      html.push(`<pre><code>${escapeHtml(codeBuffer.join("\n"))}</code></pre>`);
-    }
-
     return html.join("\n");
   }
 
-  function renderTags() {
-    const tagSet = new Set();
-    allPosts.forEach((post) => {
-      (post.tags || []).forEach((t) => tagSet.add(t));
-    });
-
-    const tags = ["all", ...Array.from(tagSet)];
-    tagFilterBarEl.innerHTML = tags
-      .map((tag) => {
-        const isActive = tag === activeTag ? "active" : "";
-        const label = tag === "all" ? "ALL LOGS" : `#${tag}`;
-        return `<button type="button" class="tag-btn ${isActive}" data-tag="${escapeHtml(
-          tag
-        )}">${escapeHtml(label)}</button>`;
-      })
-      .join("");
-
-    tagFilterBarEl.querySelectorAll(".tag-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        activeTag = btn.getAttribute("data-tag") || "all";
-        renderTags();
-        renderPostsList();
-      });
-    });
-  }
-
-  function renderPostsList() {
-    const q = searchQuery.toLowerCase().trim();
-    const filtered = allPosts.filter((post) => {
-      const matchesTag =
-        activeTag === "all" || (post.tags || []).includes(activeTag);
-      const matchesQuery =
-        !q ||
-        post.title.toLowerCase().includes(q) ||
-        post.summary.toLowerCase().includes(q) ||
-        (post.tags || []).some((t) => t.toLowerCase().includes(q)) ||
-        (post.body || "").toLowerCase().includes(q);
-      return matchesTag && matchesQuery;
-    });
-
-    if (filtered.length === 0) {
-      postsListEl.innerHTML = `
-        <div class="post-card" style="cursor: default;">
-          <p class="mono-muted">NO MATCHING CHRONICLES FOUND IN ARCHIVE.</p>
-        </div>
-      `;
+  function renderList() {
+    if (posts.length === 0) {
+      postsListEl.innerHTML = '<p class="muted">No posts yet.</p>';
       return;
     }
 
-    postsListEl.innerHTML = filtered
-      .map((post) => {
-        const tagsHtml = (post.tags || [])
-          .map((t) => `<span class="post-tag">#${escapeHtml(t)}</span>`)
-          .join("");
-        return `
-          <article class="post-card" data-slug="${escapeHtml(post.slug)}" tabindex="0" role="button" aria-label="Read ${escapeHtml(post.title)}">
-            <div class="post-meta-row">
-              <span class="post-date">${escapeHtml(post.date)}</span>
-              <span>${escapeHtml(post.readingTime || "4 min read")}</span>
-            </div>
-            <h3 class="post-card-title">${escapeHtml(post.title)}</h3>
-            <p class="post-card-summary">${escapeHtml(post.summary)}</p>
-            <div class="post-card-footer">
-              <div class="post-tags">${tagsHtml}</div>
-              <span class="read-more-link">Read Entry &rarr;</span>
-            </div>
-          </article>
-        `;
-      })
+    postsListEl.innerHTML = posts
+      .map(
+        (p) => `
+        <div class="post-item">
+          <span class="post-date">${escapeHtml(p.date)}</span>
+          <a href="#post/${encodeURIComponent(p.slug)}">${escapeHtml(p.title)}</a>
+        </div>`
+      )
       .join("");
-
-    postsListEl.querySelectorAll(".post-card[data-slug]").forEach((card) => {
-      const openPost = () => {
-        const slug = card.getAttribute("data-slug");
-        window.location.hash = `#post/${slug}`;
-      };
-      card.addEventListener("click", openPost);
-      card.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          openPost();
-        }
-      });
-    });
   }
 
-  function openPostBySlug(slug) {
-    const post = allPosts.find((p) => p.slug === slug);
-    if (!post) {
-      closeReaderView();
-      return;
-    }
-
-    homeSectionsViewEl.classList.add("hidden");
-    heroSectionEl.classList.add("hidden");
-    postReaderViewEl.classList.remove("hidden");
-
-    readerPostPathEl.textContent = `posts/${post.slug}.md`;
-    const tagsHtml = (post.tags || [])
-      .map((t) => `<span class="post-tag">#${escapeHtml(t)}</span>`)
-      .join(" ");
-
-    postArticleContainerEl.innerHTML = `
-      <header class="article-header">
-        <div class="article-meta">
-          <span class="post-date">${escapeHtml(post.date)}</span>
-          <span>&bull;</span>
-          <span>${escapeHtml(post.readingTime || "4 min read")}</span>
-          <span>&bull;</span>
-          <div class="post-tags">${tagsHtml}</div>
-        </div>
-        <h1 class="article-title">${escapeHtml(post.title)}</h1>
-      </header>
-      <div class="markdown-body">
-        ${renderMarkdown(post.body)}
-      </div>
-    `;
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function closeReaderView() {
-    postReaderViewEl.classList.add("hidden");
-    homeSectionsViewEl.classList.remove("hidden");
-    heroSectionEl.classList.remove("hidden");
-  }
-
-  function handleHashChange() {
+  function route() {
     const hash = window.location.hash || "";
     if (hash.startsWith("#post/")) {
-      const slug = decodeURIComponent(hash.slice("#post/".length));
-      openPostBySlug(slug);
-    } else {
-      closeReaderView();
-      if (hash && hash !== "#top") {
-        const target = document.querySelector(hash);
-        if (target) {
-          target.scrollIntoView({ behavior: "smooth" });
-        }
+      const slug = decodeURIComponent(hash.slice(6));
+      const post = posts.find((p) => p.slug === slug);
+      if (post) {
+        mainViewEl.classList.add("hidden");
+        postViewEl.classList.remove("hidden");
+        postContentEl.innerHTML = `
+          <h1>${escapeHtml(post.title)}</h1>
+          <p class="muted">${escapeHtml(post.date)}</p>
+          ${renderMarkdown(post.body)}
+        `;
+        window.scrollTo(0, 0);
+        return;
       }
     }
-
-    // Update active state in nav
-    navLinks.forEach((link) => {
-      const href = link.getAttribute("href");
-      if (hash.startsWith("#post/") && href === "#journal") {
-        link.classList.add("active");
-      } else if (hash === href) {
-        link.classList.add("active");
-      } else if (!hash && href === "#journal") {
-        link.classList.add("active");
-      } else {
-        link.classList.remove("active");
-      }
-    });
+    postViewEl.classList.add("hidden");
+    mainViewEl.classList.remove("hidden");
   }
 
-  if (searchInputEl) {
-    searchInputEl.addEventListener("input", (e) => {
-      searchQuery = e.target.value || "";
-      renderPostsList();
-    });
-  }
-
-  if (backToJournalBtn) {
-    backToJournalBtn.addEventListener("click", () => {
-      window.location.hash = "#journal";
-    });
-  }
-
-  if (brandLink) {
-    brandLink.addEventListener("click", () => {
-      closeReaderView();
-    });
-  }
-
-  window.addEventListener("hashchange", handleHashChange);
-
-  renderTags();
-  renderPostsList();
-  handleHashChange();
+  window.addEventListener("hashchange", route);
+  renderList();
+  route();
 })();
