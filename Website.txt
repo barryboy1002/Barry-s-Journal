@@ -1,0 +1,19 @@
+Website plan md 
+hosting should be on github pages
+new-repo: git@github.com:barryboy1002/Barry-s-Journal.git
+it is like a mixture between a blog site and a portfolio. No flashy colors I want a theme thats ok for a systems engineer(I like knights and green lantern).
+I also want to be able to post blogs on the website 
+	A place to show my projects for now I have Atobold(https://github.com/barryboy1002/Atobold0.0.2.git)
+	A section About me which should have my contacts email : odorobarry@gmail.com
+							x : @OdoroBarry
+							Github : https://github.com/barryboy1002
+							LinkedIn : https://www.linkedin.com/in/barry-odoro-b44317248/
+this section should be as is							
+'''
+About me : 
+I am an aspiring systems engineer (not there yet still working on it). I love building COOL and HARD things. I need the challenge to fill fufilled I guess. Anyways I try to build industry grade software but I often allow room for experimentation ,maybe to much room. I always put myself and my software to a high standard even when I am learning which is now.
+
+Yeah this is what I feel comfortable being out there. 
+'''
+
+and make sure you explain how I will be publishing my blogs
